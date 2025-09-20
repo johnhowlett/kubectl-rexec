@@ -33,8 +33,24 @@ func Server() {
 	// handle native pod exec through a validating webhook
 	r.HandleFunc("/validate-exec", execHandler)
 
+	srv := &http.Server{
+		Addr:    fmt.Sprintf(":%d", 8443),
+		Handler: r,
+		TLSConfig: &tls.Config{
+			GetCertificate: func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
+				// Always get latest /etc/pki/rexec/tls.crt and /etc/pki/rexec/tls.key
+				cert, err := tls.LoadX509KeyPair("/etc/pki/rexec/tls.crt", "/etc/pki/rexec/tls.key")
+				if err != nil {
+					return nil, err
+				}
+				return &cert, nil
+			},
+		},
+	}
+
 	// start tls listener
-	http.ListenAndServeTLS(":8443", "/etc/pki/rexec/tls.crt", "/etc/pki/rexec/tls.key", r)
+	srv.ListenAndServeTLS("", "")
+
 }
 
 // rexecHandler is responsible for rewrite the request to an exec request
